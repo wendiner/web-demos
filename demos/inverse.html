@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Inverse Circle</title>
+		<style>
+			body {
+				background-color: #000;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="display" width="512" height="512" style="border: 1px solid #fff;" ></canvas>
+		
+		<script>
+			document.querySelector("canvas#display").addEventListener("mousemove", e => {
+				// establish drawcontext
+				let ctx = e.target.getContext("2d");
+				
+				// clear canvas
+				ctx.fillStyle = "#000";
+				ctx.fillRect(0, 0, 512, 512);
+				
+				let px = e.offsetX;
+				let py = e.offsetY;
+				
+				let r = 128;
+				
+				ctx.strokeStyle = "#fff";
+				
+				// horizontal lines
+				for (let i = 0; i < 512; i += 32) {
+					let first;
+					let second;
+					
+					if (r**2 - (i - py)**2 < 0) {
+						first = 512;
+						second = 512;
+					} else {
+						first = px - Math.sqrt(r**2 - (i - py)**2);
+						second = px + Math.sqrt(r**2 - (i - py)**2);
+					}
+					
+					ctx.beginPath();
+					ctx.moveTo(first, i);
+					ctx.lineTo(second, i);
+					ctx.stroke();
+				}
+				
+				// vertical lines
+				for (let i = 0; i < 512; i += 32) {
+					let first;
+					let second;
+					if (r**2 - (i - px)**2 < 0) {
+						first = 512;
+						second = 512;
+					} else {
+						first = py - Math.sqrt(r**2 - (i - px)**2);
+						second = py + Math.sqrt(r**2 - (i - px)**2);
+					}
+					
+					ctx.beginPath();
+					ctx.moveTo(i, first);
+					ctx.lineTo(i, second);
+					ctx.stroke();
+				}
+			});
+		</script>
+	</body>
+</html>

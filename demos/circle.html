@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Funky Circle</title>
+		<style>
+			body {
+				display: flex;
+				flex-direction: column;
+				align-items: flex-start;
+			}
+			button { margin-top: 20px; }
+		</style>
+	</head>
+	<body>
+		<canvas width="512" height="512"></canvas>
+		<input type="range" min="0" max="5" step="1" value="0" />
+		<button>Toggle Paths</button>
+		
+		<script>
+			let showPaths = true;
+			document.querySelector("button").addEventListener("click", () => showPaths = !showPaths);
+			
+			let can = document.querySelector("canvas");
+			let ctx = can.getContext("2d");
+			let offset = 0;
+			setInterval(() => {
+				ctx.fillStyle = "#fff";
+				ctx.fillRect(0, 0, 512, 512);
+				
+				ctx.strokeStyle = "#000";
+				ctx.beginPath();
+				ctx.ellipse(256, 256, 210, 210, 0, 0, 360 * Math.PI / 180);
+				ctx.stroke();
+				
+				let num = 180 / 2 ** (document.querySelector("input").value - 0);
+				
+				if (showPaths) for (let i = 0; i < 360; i += num) {
+					let rad = i * Math.PI / 180;
+					ctx.beginPath();
+					ctx.moveTo(256, 256);
+					ctx.lineTo(256 + Math.sin(rad) * 210, 256 + Math.cos(rad) * 210);
+					ctx.stroke();
+				}
+				
+				for (let i = 0; i < 360; i += num) {
+					let rad = i * Math.PI / 180;
+					let mag = Math.sin((i + offset) * Math.PI / 180) * 200;
+					
+					ctx.fillStyle = `hsl(${i}, 100%, 50%)`;
+					ctx.beginPath();
+					ctx.ellipse(256 + Math.sin(rad) * mag, 256 + Math.cos(rad) * mag, 10, 10, 0, 0, 360 * Math.PI / 180);
+					ctx.fill();
+				}
+				offset++;
+			}, 10);
+		</script>
+	</body>
+</html>

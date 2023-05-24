@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+	<body>
+		<canvas width="512" height="512"></canvas>
+		
+		<script>
+			let ctx = document.querySelector("canvas").getContext("2d");
+			(async function() {
+				while (true) {
+					ctx.fillStyle = "#fff";
+					ctx.fillRect(0, 0, 512, 512);
+					
+					ctx.fillStyle = "#00f";
+					
+					let rad = 50;
+					
+					for (let i = 0; i < 120; i++) {
+						ctx.beginPath();
+						ctx.ellipse(256, i * 5, rad, 20, 0, 0, 2 * Math.PI);
+						ctx.fill();
+						
+						rad += Math.floor(Math.random() * 20) - 10;
+						if (rad < 1) rad = 5;
+						
+						await new Promise(r => setTimeout(r, 33));
+					}
+					
+					await new Promise(r => {
+						let handler = e => {
+							if (e.code != "Space") return;
+							document.removeEventListener("keyup", handler);
+							r();
+						};
+						document.addEventListener("keyup", handler);
+					});
+				}
+			})();
+		</script>
+	</body>
+</html>

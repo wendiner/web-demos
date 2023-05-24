@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+	<body>
+		<canvas width="512" height="512"></canvas>
+		
+		<script>
+			let rgb1 = [Math.floor(Math.random() * 256), Math.floor(Math.random() * 256), Math.floor(Math.random() * 256)];
+			let rgb2 = [Math.floor(Math.random() * 256), Math.floor(Math.random() * 256), Math.floor(Math.random() * 256)];
+			
+			(async function() {
+				while (rgb1[0] != rgb2[0] || rgb1[1] != rgb2[1] || rgb1[2] != rgb2[2]) {
+					let ctx = document.querySelector("canvas").getContext("2d");
+					let hex = "#";
+					for (let i = 0; i < 3; i++) {
+						if (rgb1[i].toString(16).length < 2) {
+							hex += "0" + rgb1[i].toString(16);
+						} else {
+							hex += rgb1[i].toString(16);
+						}
+					}
+					ctx.fillStyle = hex;
+					ctx.fillRect(0, 0, 512, 512);
+					
+					rgb1[0] += Math.floor((rgb2[0] - rgb1[0]) / 100);
+					rgb1[1] += Math.floor((rgb2[1] - rgb1[1]) / 100);
+					rgb1[2] += Math.floor((rgb2[2] - rgb1[2]) / 100);
+					
+					await new Promise(r => setTimeout(r, 25));
+				}
+			})();
+		</script>
+	</body>
+</html>

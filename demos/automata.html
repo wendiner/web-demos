@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>1D Cellular Automata</title>
+	</head>
+	<body>
+		<canvas width="512" height="512" />
+		
+		<script>
+			let update = (data,y) => {
+				let can = document.querySelector("canvas");
+				let ctx = can.getContext("2d");
+				
+				let img = ctx.createImageData(512, 1);
+				for (let i = 0; i < img.data.length; i += 4) {
+					let value = data[Math.floor(i / 4)] ? 0 : 255;
+					img.data[i + 0] = value;
+					img.data[i + 1] = value;
+					img.data[i + 2] = value;
+					img.data[i + 3] = 255;
+				}
+				ctx.putImageData(img, 0, y);
+			};
+			
+			let tape = Array(512).fill(0);
+			tape[256] = 1;
+			update(tape, 0);
+			
+			let rule = 90;
+			
+			for (let i = 1; i < 512; i++) {
+				let newTape = [];
+				for (let j = 0; j < 512; j++) {
+					let state = 4 * (j == 0 ? 0 : tape[j - 1]) + 2 * tape[j] + (j == 511 ? 0 : tape[j + 1]);
+					newTape[j] = Math.floor(rule / 2 ** state) % 2;
+				}
+				tape = newTape;
+				update(tape, i);
+			}
+		</script>
+	</body>
+</html>

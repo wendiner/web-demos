@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Mandelbrot Set</title>
+		<style>
+			span,p { color: #fff; }
+		</style>
+	</head>
+	<body style="background-color: #000;">
+		<canvas width="512" height="512" style="border: 1px solid #fff;"></canvas><hr>
+		<span>X: </span><input type="number" value="0" /><br><br>
+		<span>Y: </span><input type="number" value="0" /><br><br>
+		<span>Zoom: </span><input type="number" value="100" /><br><br>
+		<span>Depth: </span><input type="number" value="80" /><br><br>
+		<span>Zoom Step: </span><input type="number" value="1000" /><br><br>
+		<button>Update</button>
+	
+		<script>
+			var mandSet = {
+				genData: (originX, originY, zoom, depth) => new Promise(async r => {
+					let p = document.createElement("p");
+					p.innerHTML = "<i>Loading...</i>";
+					document.querySelector("canvas").after(p);
+					await new Promise(r => setTimeout(r,0)); // cheat to update the DOM I found on SO
+					
+					let fc = (z, c) => [2 * z[1] * z[0] + c[0], z[1] ** 2 - z[0] ** 2 + c[1]];
+					let data = [];
+					for (let i = 0; i < 262144; i++) {
+						let j = 0;
+						let sum = [0, 0];
+						while (Math.sqrt(sum[0] ** 2 + sum[1] ** 2) <= 4 && j != depth) {
+							sum = fc(sum, [originY - 256 / zoom + Math.floor(i / 512) / zoom, originX - 256 / zoom + i % 512 / zoom]);
+							j++;
+						}
+						data.push(j);
+					}
+					p.remove();
+					r(data);
+				}),
+				render: function(input, depth) {
+					let can = document.querySelector("canvas");
+					let ctx = can.getContext("2d");
+					
+					let img = ctx.createImageData(512, 512);
+					for (let i = 0; i < img.data.length; i += 4) {
+						let value = Math.floor(input[Math.floor(i / 4)] / depth * 256 ** 3);
+						
+						img.data[i] = value % 256;
+						img.data[i + 1] = Math.floor(value / 256) % 256;
+						img.data[i + 2] = Math.floor(value / 256 ** 2) % 256;
+						img.data[i + 3] = 255;
+					}
+					ctx.putImageData(img, 0, 0);
+				}
+			};
+			
+			let fields = document.querySelectorAll("input");
+			
+			let handler = async e => {
+				if (e && e.type == "keyup" && e.code != "Enter") return 1;
+				mandSet.render(await mandSet.genData(fields[0].value, fields[1].value, fields[2].value, fields[3].value), fields[3].value);
+			};
+			
+			handler();
+			
+			document.addEventListener("keyup", handler);
+			document.querySelector("button").addEventListener("click", handler);
+			
+			document.querySelector("canvas").addEventListener("click", e => {
+				fields[0].value -= -(e.offsetX - 256) / fields[2].value;
+				fields[1].value -= -(e.offsetY - 256) / fields[2].value;
+				fields[2].value -= -fields[4].value
+				handler();
+			});
+		</script>
+	</body>
+</html>

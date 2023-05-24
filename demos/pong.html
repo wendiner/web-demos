@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Pong</title>
+    <style>
+      body {
+        background-color: #000;
+        text-align: center;
+      }
+      canvas {
+        border: 1px solid #fff;
+        display: inline;
+        margin: 0 auto;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas width="512" height="512"></canvas>
+    
+    <script>
+      // initialize score
+      
+      let p1score = 0;
+      let p2score = 0;
+      
+      let wallmode = false;
+      
+      let ballX;
+      let ballY;
+      let angle;
+      let speed;
+      let ballDX;
+      let ballDY;
+      let p1y;
+      let p2y;
+      
+      // initialize constants
+      
+      const init = function() {
+        ballX = 256;
+        ballY = 256;
+        p1y = 256;
+        p2y = 256;
+        
+        angle = Math.random() * 45 - 22.5;
+        if (angle < 0) angle += 360;
+        speed = 5;
+      }
+      
+      // controls
+      
+      const keys = {
+        KeyA: false,
+        KeyZ: false,
+        KeyK: false,
+        KeyM: false,
+        KeyR: false,
+        KeyW: false
+      };
+      
+      const keyHandler = e => {
+        if (keys.hasOwnProperty(e.code)) keys[e.code] = (e.type == "keydown");
+      };
+      
+      document.addEventListener("keydown", keyHandler);
+      document.addEventListener("keyup", keyHandler);
+      
+      // drawing
+      
+      const refresh = () => {
+        ctx = document.querySelector("canvas").getContext("2d");
+        
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, 512, 512);
+        
+        ctx.fillStyle = "#ddd";
+        ctx.font = "40px Lucida Console";
+        ctx.fillText(`${p1score}`, 16, 495);
+        ctx.fillText(`${p2score}`, 495 - ctx.measureText(`${p2score}`).width, 495);
+        
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(ballX - 4, ballY - 4, 8, 8); // ball is 8x8
+        
+        ctx.fillRect(16, p1y - 16, 8, 32); // paddles are 8x32, each one is 20 units from the sides
+        ctx.fillRect(487, p2y - 16, 8, 32);
+        
+        ctx.strokeStyle = "#fff"; // dotted line
+        ctx.beginPath();
+        ctx.setLineDash([8, 8]);
+        ctx.moveTo(256, 0);
+        ctx.lineTo(256, 512);
+        ctx.stroke();
+      };
+      
+      // single-step of operation
+      
+      const step = () => {
+        if (keys.KeyR) init();
+        refresh();
+        
+        if (keys.KeyA) {
+          p1y -= 8;
+          if (p1y < 16) p1y = 16;
+        } else if (keys.KeyZ) {
+          p1y += 8;
+          if (p1y > 495) p1y = 495;
+        }
+        if (keys.KeyK) {
+          p2y -= 8;
+          if (p2y < 16) p2y = 16;
+        } else if (keys.KeyM) {
+          p2y += 8;
+          if (p2y > 495) p2y = 495;
+        }
+        
+        if (keys.KeyW) wallmode = true;
+        
+        // where (x,y) is the ball's current coordinates
+        // m is the slope
+        // and l is the line position
+        // one can use the formula (l-y)/m+x to
+        // find the intercept of a horizontal line
+        // and a normal one
+        
+        ballDX = Math.cos(angle / 180 * Math.PI) * speed;
+        ballDY = Math.sin(angle / 180 * Math.PI) * speed;
+        
+        let m = ballDY / ballDX; // slope
+        
+        let intercepts = [
+          {side: "left", x: 24},
+          {side: "right", x: 487},
+          {side: "top", x: (4 - ballY) / m + ballX},
+          {side: "bottom", x: (507 - ballY) / m + ballX}
+        ];
+        
+        let filter = [];
+        intercepts.forEach(i => (i.x > ballX && i.x < ballX + ballDX || i.x > ballX + ballDX && i.x < ballX) && filter.push(i)); // filters out collisions outside of current step
+        if (!filter.length) { // if no imminent collisions, move normally
+          ballX += ballDX;
+          ballY += ballDY;
+        } else {
+          if (filter.length > 1) { // filters out all but the nearest collision
+            let record = Infinity;
+            let holder = 0;
+            filter.forEach((c,i) => {
+              if (c.x - ballX < record) holder = i;
+            });
+            filter[0] = filter[holder];
+          }
+        
+          
+          // reflections are calculated differently
+          // based on the nature of the reflector
+          //
+          // when the ball collides with one of the
+          // sides, the angle of reflection is equal
+          // to the angle of incidence
+          //
+          // when it hits one of the paddles, however,
+          // both the angle of reflection and the speed
+          // of the ball are directly proportional to
+          // the point of collision's distance from the
+          // center of the paddle
+          // this is to encourage players to go for the
+          // more risky, but also more rewarding "edge
+          // shot"
+          
+          let reflector = filter[0];
+          ballY += m * (reflector.x - ballX);
+          ballX = reflector.x;
+          
+          switch (reflector.side) {
+            case "left":
+              if (Math.abs(ballY - p1y) > 24 && !wallmode) {
+                p2score++;
+                init();
+                return;
+              } else {
+                if (wallmode) {
+                  if (angle > 270) {
+                    angle = 270 - (angle - 270);
+                  } else {
+                    angle = 270 + (270 - angle);
+                  }
+                } else {
+                  let wideness = (ballY - p1y) / 24;
+                  angle = 80 * wideness;
+                  speed = Math.abs(wideness) * 3 + 4;
+                }
+              }
+              break;
+            case "right":
+              if (Math.abs(ballY - p2y) > 24) {
+                p1score++;
+                init();
+                return;
+              } else {
+                let wideness = (ballY - p2y) / 24;
+                angle = 180 + 80 * wideness;
+                speed = Math.abs(wideness) * 3 + 4;
+              }
+              break;
+            case "top":
+            case "bottom":
+              if (angle > 180) {
+                angle = 180 - (angle - 180);
+              } else {
+                angle = 180 + (180 - angle);
+              }
+          }
+        }
+      };
+      
+      init();
+      setInterval(step, 20);
+    </script>
+  </body>
+</html>

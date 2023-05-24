@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Tetris</title>
+	</head>
+	<body>
+		<canvas width="200" height="400" style="border: 1px solid #000;"></canvas>
+		<h2 id="score">Score: 0</h2>
+		
+		<script>
+			const grid = new Array(200);
+			const draw = function() {
+				let ctx = document.querySelector("canvas").getContext("2d");
+				for (let i = 0; i < grid.length; i++) {
+					ctx.fillStyle = grid[i] ? "#000" : "#fff";
+					ctx.fillRect(i % 10 * 20, Math.floor(i / 10) * 20, 20, 20);
+				}
+			};
+			
+			grid[0] = true;
+			draw();
+		</script>
+	</body>
+</html>

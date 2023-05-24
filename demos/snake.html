@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Snake</title>
+    <style>
+      canvas#game {
+        border: 1px solid #000;
+      }
+      h1#score {
+        margin-bottom: 0px;
+        margin-top: 0px;
+      }
+      h2#best {
+        margin-top: 0px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game" width="512" height="512"></canvas>
+    <h1 id="score">Score: 0</h1>
+    <h2 id="best">Best: 0</h2>
+    
+    <script>
+      let record = 0;
+      let size;
+      
+      const playGame = () => new Promise(r => {
+        let oldDirection = 1;
+        let direction = 1;
+        size = 1;
+        let head = 517;
+        let apple = 525;
+        let tail = [516];
+        
+        function setApple() {
+          apple = Math.floor(Math.random() * 1024);
+          while (apple == head || tail.includes(apple)) apple = Math.floor(Math.random() * 1024);
+        }
+        
+        let keyHandler = e => {
+          switch (e.code) {
+            case "ArrowUp":
+              if (direction != 2 && oldDirection != 2) direction = 0;
+              break;
+            case "ArrowDown":
+              if (direction != 0 && oldDirection != 0) direction = 2;
+              break;
+            case "ArrowLeft":
+              if (direction != 1 && oldDirection != 1) direction = 3;
+              break;
+            case "ArrowRight":
+              if (direction != 3 && oldDirection != 3) direction = 1;
+          }
+        };
+        document.addEventListener("keydown", keyHandler);
+        
+        function loop() {
+          let score = size - 1;
+          document.querySelector("h1#score").innerHTML = "Score: " + score;
+          if (score > record) record = score;
+          document.querySelector("h2#best").innerHTML = "Best: " + record;
+          
+          let next = head;
+          
+          switch (direction) {
+            case 0:
+              if (!Math.floor(head / 32)) {
+                next = head + 992;
+              } else {
+                next = head - 32;
+              }
+              break;
+            case 1:
+              if (head % 32 == 31) {
+                next = head - 31;
+              } else {
+                next = head + 1;
+              }
+              break;
+            case 2:
+              if (Math.floor(head / 32) == 31) {
+                next = head - 992;
+              } else {
+                next = head + 32;
+              }
+              break;
+            case 3:
+              if (!(head % 32)) {
+                next = head + 31;
+              } else {
+                next = head - 1;
+              }
+          }
+          
+          oldDirection = direction;
+          
+          if (tail.includes(next)) {
+            clearInterval(gameLoop);
+            r(size - 1);
+          }
+          
+          if (next == apple) {
+            size++;
+            setApple();
+          }
+          
+          tail.push(head);
+          if (tail.length > size) tail.shift();
+          
+          head = next;
+          
+          let ctx = document.querySelector("canvas#game").getContext("2d");
+          
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, 512, 512);
+          
+          ctx.fillStyle = "#f00";
+          ctx.fillRect(apple % 32 * 16, Math.floor(apple / 32) * 16, 16, 16);
+          
+          ctx.fillStyle = "#0f0";
+          ctx.fillRect(head % 32 * 16, Math.floor(head / 32) * 16, 16, 16);
+
+          tail.forEach(i => ctx.fillRect(i % 32 * 16, Math.floor(i / 32) * 16, 16, 16));
+        }
+        
+        let gameLoop = setInterval(loop, 50);
+      });
+      
+      (async function() {
+        while (1) {
+          await playGame();
+          await new Promise(r => setTimeout(r, 500));
+        }
+      })();
+    </script>
+  </body>
+</html>
