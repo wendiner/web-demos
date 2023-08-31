@@ -12,12 +12,28 @@
         display: inline;
         margin: 0 auto;
       }
+      p,label {
+        font-family: Georgia;
+        color: #fff;
+      }
     </style>
   </head>
   <body>
     <canvas width="512" height="512"></canvas>
+	
+    <p>Controls: A/Z Move left paddle up/down, K/M Move right paddle up/down, R Reset round, W Single player, for the right paddle</p>
+    
+    <label for="speed">FPS: 50</label>
+    <input id="speed" type="range" min="1" max="70" step="1" value="50" />
     
     <script>
+      let frameCap = 50;
+      
+      document.querySelector("input#speed").addEventListener("change", e => {
+        frameCap = e.target.value - 0;
+        document.querySelector("label[for=\"speed\"]").innerHTML = `FPS: ${frameCap}`;
+      });
+      
       // initialize score
       
       let p1score = 0;
@@ -213,7 +229,12 @@
       };
       
       init();
-      setInterval(step, 20);
+      (async function() {
+        while (true) {
+          step();
+          await new Promise(r => setTimeout(r, Math.floor(1000 / frameCap)));
+        }
+      })();
     </script>
   </body>
 </html>
