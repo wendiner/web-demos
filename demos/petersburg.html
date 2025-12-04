@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>St. Petersburg Lotto Demo</title>
+	</head>
+	<body>
+		<h1>St. Petersburg Lottery Demonstration</h1>
+		<canvas id="graph" style="border: 1px solid black;" width="512" height="512"></canvas><br>
+		<input type="button" id="startSim" value="Start demonstration" /><br>
+		<p>What you're looking at is a rolling average of 512 games of the St. Petersburg Lottery.
+			<br>The rules are simple: a coin is flipped until it lands on tails, and for every head, 2^flip points are awarded.</p>
+		
+		<script>
+			document.querySelector("#startSim").addEventListener("click", e => {
+				let results = [];
+				let avgs = [];
+				for (let i = 0; i < 512; i++) {
+					let sum = 1;
+					let heads = 1;
+					
+					while (heads) {
+						heads = Math.round(Math.random());
+						if (heads) sum *= 2;
+					}
+					
+					if (sum === 1) {
+						sum = 0;
+					}
+					
+					results[i] = sum;
+					avgs[i] = results.reduce((partialSum, a) => partialSum + a, 0) / results.length;
+				}
+				
+				console.log(results);
+				console.log(`Max value: ${results.reduce((a, b) => Math.max(a, b), -Infinity)}, Avg value: ${avgs[511]}`);
+				
+				let ctx = document.querySelector("#graph").getContext("2d");
+				ctx.fillStyle = "white";
+				ctx.fillRect(0, 0, 512, 512);
+				
+				ctx.fillStyle = "black";
+				for (let i = 0; i < 512; i++)
+					ctx.fillRect(i, 512 - avgs[i] * (512 / avgs.reduce((a, b) => Math.max(a, b), -Infinity)), 1, avgs[i] * (512 / avgs.reduce((a, b) => Math.max(a, b), -Infinity)));
+			});
+		</script>
+	</body>
+</html>
