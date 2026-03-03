@@ -11,10 +11,15 @@
         border: 1px solid #fff;
       }
       
-      h1,p {
+      h1,p,label {
         color: #fff;
       }
+      
+      #downloadStatus {
+        color: #c00;
+      }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   </head>
   <body>
     <h1>Kernel Automata</h1>
@@ -23,12 +28,20 @@
     <br>
     <button type="button" id="startButton">Start</button>
     <progress id="progress" max="100" value="0"></progress>
-    <p>May take a while to process.<br>JavaScript alert will pop-up when done.</p>
+    <p>May take a while to process. WARNING: Eats RAM like crazy; every frame is essentially a cached BMP.<br>JavaScript alert will pop-up when done.</p>
     <p id="eta">ETA: Not started</p>
+    <label for="step">Step?</label>
+    <input type="checkbox" id="step" name="step" /><br>
+    <label for="iterations">How many iterations?</label>
+    <input type="number" id="iterations" name="iterations" min="1" max="65536" value="10" /><br>
+    <label for="smoothness">Smoothness (1 = super smooth, 10 = super gritty)</label>
+    <input type="number" id="smoothness" name="smoothness" min="1" max="20" value="2" /><br><br>
+    <button type="button" id="downloadButton">Download animation</button>
+    <label id="downloadStatus">Wait until playback is done</label>
     
     <script>
       (async function() {
-        await new Promise(r => {
+        await new Promise(r => { // wait until start button is pressed
           let handler = e => {
             document.querySelector("#startButton").removeEventListener("click", handler);
             r();
@@ -37,13 +50,14 @@
           document.querySelector("#startButton").addEventListener("click", handler);
         });
         
-        let ctx = document.querySelector("#display").getContext("2d");
+        let can = document.querySelector("#display");
+        let ctx = can.getContext("2d");
         let oPlane = []; // old (past iteration) plane
         let nPlane = []; // new (current iteration) plane
         let buffer = []; // display buffer planes
         let width = 512; // width of planes
         let height = 512; // height of planes
-        let iterations = 1000; // # of iterations to perform before playback
+        let iterations = document.querySelector("#iterations").value - 0; // # of iterations to perform before playback
         
         // image editing effects like blur and edge detection use a 9-cell kernel ("Moore neighborhood")
         // that sweeps over each pixel in the image to find its new, processed value. this works similarly,
@@ -53,7 +67,7 @@
         
         let rules = []; // list of nodes in the hidden layer
         function generateRules() {
-          for (let i = 0; i < Math.ceil(Math.random() * 10); i++) {
+          for (let i = 0; i < Math.ceil(Math.random() * 10); i++) { // 1 to 10 hidden nodes
             rules[i] = {};
           
             rules[i].bWeights = []; // back-facing weights (9 input node, 9 weights)
@@ -64,9 +78,9 @@
           }
         }
         
-        generateRules();
+        generateRules(); // initial ruleset
         
-        function shuffleRules(magnitude) {
+        function shuffleRules(magnitude) { // offset the weights and biases slightly
           for (let i = 0; i < rules.length; i++) {
             for (let j = 0; j < 9; j++)
               rules[i].bWeights[j] += (Math.random() * magnitude * 2) - magnitude;
@@ -75,9 +89,10 @@
           }
         }
         
-        let logFunc = (x) => 2 * Math.exp(8 * x) / (1 + Math.exp(8 * x)) - 1; // logistic curve (sigmoid function)
+        let smoothFactor = document.querySelector("#smoothness").value - 0; // how flat is the curve?
+        let logFunc = (x) => 2 * Math.exp(smoothFactor * x) / (1 + Math.exp(smoothFactor * x)) - 1; // logistic curve (sigmoid function)
         
-        function evalRules(inputs) {
+        function evalRules(inputs) { // plug inputs into the perceptron and calculate the input
           let nodeSums = [];
           for (let i = 0; i < rules.length; i++)
             nodeSums[i] = 0;
@@ -87,7 +102,7 @@
               nodeSums[j] += inputs[i] * rules[j].bWeights[i];
           
           let outputSum = 0;
-          for (let i = 0; i < nodeSums.length; i++)
+          for (let i = 0; i < nodeSums.length; i++) // iterate through hidden layer again, this time adding the sum to the output
             outputSum += rules[i].fWeight * logFunc(nodeSums[i] - rules[i].bias);
           
           return logFunc(outputSum);
@@ -97,8 +112,8 @@
           let x = ind % width;
           let y = Math.floor(ind / width);
           
-          if (x + xOff >= width || x + xOff < 0 || y + yOff >= height || y + yOff < 0)
-            return Math.random() * 2 - 1;
+          if (x + xOff >= width || x + xOff < 0 || y + yOff >= height || y + yOff < 0) // if desired pixel is outside of grid...
+            return Math.random() * 2 - 1; // ...then mark it down as a random value
           
           return oPlane[(y + yOff) * width + (x + xOff)];
         }
@@ -108,41 +123,44 @@
           
         buffer[0] = oPlane; // first frame is the random one
         
-        let startTime = new Date();
+        let startTime = new Date(); // used for ETA update later
         for (let i = 1; i < iterations; i++) { // actual processing loop
           shuffleRules(0.2); // change perceptron values slightly
           for (let j = 0; j < width * height; j++)
-            nPlane[j] = evalRules([check(j, -1, 1), check(j, 0, 1), check(j, 1, 1), check(j, -1, 0), check(j, 0, 0), check(j, 1, 0), check(j, -1, -1), check(j, 0, -1), check(j, 1, -1)]);
+            nPlane[j] = evalRules([check(j, -1, 1), check(j, 0, 1), check(j, 1, 1), check(j, -1, 0), check(j, 0, 0), check(j, 1, 0), check(j, -1, -1), check(j, 0, -1), check(j, 1, -1)]); // the actual transformation
           
-          document.querySelector("#progress").setAttribute("value", `${Math.floor(i / iterations * 100)}`);
+          document.querySelector("#progress").setAttribute("value", `${Math.floor(i / iterations * 100)}`); // progress bar update
           let currentTime = new Date();
-          document.querySelector("#eta").innerText = `ETA: ${Math.floor((iterations - i) * i / (currentTime - startTime) * 10)}s`;
+          document.querySelector("#eta").innerText = `ETA: ${Math.floor((iterations - i) * i / (currentTime - startTime) * 10)}s`; // ETA update
           await new Promise(r => { // brief delay so DOM can update
             setTimeout(r, 1);
           });
           
-          buffer.push(nPlane);
-          oPlane = nPlane;
-          nPlane = [];
+          buffer.push(nPlane); // add this plane to the display buffer
+          oPlane = nPlane; // old plane is now the current plane
+          nPlane = []; // clear the current plane
         }
         
         function render(plane) {
           ctx.fillStyle = "#000";
-          ctx.fillRect(0, 0, width, height);
+          ctx.fillRect(0, 0, width, height); // clear display
           
           let img = ctx.createImageData(width, height);
           for (let i = 0; i < width * height * 4; i += 4) {
-            img.data.fill(255, i, i + 3);
-            img.data[i + 3] = Math.floor(127 + plane[i / 4] * 127);
+            img.data.fill(Math.floor(127 + plane[i / 4] * 127), i, i + 3); // color in the pixel
+            img.data[i + 3] = 255;
           }
           
           ctx.putImageData(img, 0, 0);
         }
         
         await alert("Done! Press ok to view animation.");
-        let step = 0;
+        let zip = new JSZip(); // create zip archive for download
+        let step = document.querySelector("#step").checked;
         for (let i = 0; i < buffer.length; i++) {
           render(buffer[i]);
+          can.toBlob(blob => // save PNG of frame data to a zip file for later download
+            zip.file(`frames/frame-${String(i).padStart(Math.ceil(Math.log10(iterations)), '0')}.png`, blob, {createFolders: true}));
           console.log("Now viewing: buffer #" + i);
           await new Promise(r => {
             let handler = e => {
@@ -158,6 +176,30 @@
               setTimeout(handler, 33);
           });
         }
+        
+        document.querySelector("#downloadStatus").style.color = "#cc0";
+        document.querySelector("#downloadStatus").innerText = "Preparing zip archive...";
+        let finalZipFile = await zip.generateAsync({type: "blob"}); // prepare the zip file
+        document.querySelector("#downloadStatus").style.color = "#0c0";
+        document.querySelector("#downloadStatus").innerText = "Ready to download!";
+        
+        await new Promise(r => { // download the zip file when button is pressed, clean up afterwards
+          let url = URL.createObjectURL(finalZipFile);
+          let a = document.createElement("a");
+          a.setAttribute("href", url);
+          a.setAttribute("filename", "automata-frames.zip");
+          
+          let handler = e => {
+            a.click();
+            URL.revokeObjectURL(url);
+            document.querySelector("#downloadButton").removeEventListener("click", handler);
+            r();
+          };
+          
+          document.querySelector("#downloadButton").addEventListener("click", handler);
+        });
+        
+        document.querySelector("#downloadStatus").innerText = "File downloaded";
       })();
     </script>
   </body>
