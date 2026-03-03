@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Kernel Automata</title>
+    <style>
+      body {
+        background-color: #000;
+      }
+      
+      #display {
+        border: 1px solid #fff;
+      }
+      
+      h1,p {
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Kernel Automata</h1>
+    <hr>
+    <canvas id="display" width="512" height="512"></canvas>
+    <br>
+    <button type="button" id="startButton">Start</button>
+    <progress id="progress" max="100" value="0"></progress>
+    <p>May take a while to process.<br>JavaScript alert will pop-up when done.</p>
+    <p id="eta">ETA: Not started</p>
+    
+    <script>
+      (async function() {
+        await new Promise(r => {
+          let handler = e => {
+            document.querySelector("#startButton").removeEventListener("click", handler);
+            r();
+          };
+          
+          document.querySelector("#startButton").addEventListener("click", handler);
+        });
+        
+        let ctx = document.querySelector("#display").getContext("2d");
+        let oPlane = []; // old (past iteration) plane
+        let nPlane = []; // new (current iteration) plane
+        let buffer = []; // display buffer planes
+        let width = 512; // width of planes
+        let height = 512; // height of planes
+        let iterations = 1000; // # of iterations to perform before playback
+        
+        // image editing effects like blur and edge detection use a 9-cell kernel ("Moore neighborhood")
+        // that sweeps over each pixel in the image to find its new, processed value. this works similarly,
+        // with the added complexity that instead of a weighted average, the values of neighboring pixels are
+        // being fed into a single-layer perceptron. the concept is very similar to (yet much simpler than)
+        // the convolutional neural networks (CNNs) used for AI image recognition and generation
+        
+        let rules = []; // list of nodes in the hidden layer
+        function generateRules() {
+          for (let i = 0; i < Math.ceil(Math.random() * 10); i++) {
+            rules[i] = {};
+          
+            rules[i].bWeights = []; // back-facing weights (9 input node, 9 weights)
+            for (let j = 0; j < 9; j++)
+              rules[i].bWeights[j] = Math.random() * 2 - 1; // -1.0 to 1.0
+            rules[i].fWeight = Math.random() * 2 - 1; // front-facing weight (1 output node, 1 weight)
+            rules[i].bias = Math.random() * 2 - 1;
+          }
+        }
+        
+        generateRules();
+        
+        function shuffleRules(magnitude) {
+          for (let i = 0; i < rules.length; i++) {
+            for (let j = 0; j < 9; j++)
+              rules[i].bWeights[j] += (Math.random() * magnitude * 2) - magnitude;
+            rules[i].fWeight += (Math.random() * magnitude * 2) - magnitude;
+            rules[i].bias += (Math.random() * magnitude * 2) - magnitude;
+          }
+        }
+        
+        let logFunc = (x) => 2 * Math.exp(8 * x) / (1 + Math.exp(8 * x)) - 1; // logistic curve (sigmoid function)
+        
+        function evalRules(inputs) {
+          let nodeSums = [];
+          for (let i = 0; i < rules.length; i++)
+            nodeSums[i] = 0;
+          
+          for (let i = 0; i < 9; i++) // iterate through input nodes
+            for (let j = 0; j < rules.length; j++) // iterate through hidden layer nodes
+              nodeSums[j] += inputs[i] * rules[j].bWeights[i];
+          
+          let outputSum = 0;
+          for (let i = 0; i < nodeSums.length; i++)
+            outputSum += rules[i].fWeight * logFunc(nodeSums[i] - rules[i].bias);
+          
+          return logFunc(outputSum);
+        }
+        
+        function check(ind, xOff, yOff) { // get pixel value from index and coordinate offset
+          let x = ind % width;
+          let y = Math.floor(ind / width);
+          
+          if (x + xOff >= width || x + xOff < 0 || y + yOff >= height || y + yOff < 0)
+            return Math.random() * 2 - 1;
+          
+          return oPlane[(y + yOff) * width + (x + xOff)];
+        }
+        
+        for (let i = 0; i < width * height; i++) // randomize the first iteration
+          oPlane[i] = Math.random() * 2 - 1;
+          
+        buffer[0] = oPlane; // first frame is the random one
+        
+        let startTime = new Date();
+        for (let i = 1; i < iterations; i++) { // actual processing loop
+          shuffleRules(0.2); // change perceptron values slightly
+          for (let j = 0; j < width * height; j++)
+            nPlane[j] = evalRules([check(j, -1, 1), check(j, 0, 1), check(j, 1, 1), check(j, -1, 0), check(j, 0, 0), check(j, 1, 0), check(j, -1, -1), check(j, 0, -1), check(j, 1, -1)]);
+          
+          document.querySelector("#progress").setAttribute("value", `${Math.floor(i / iterations * 100)}`);
+          let currentTime = new Date();
+          document.querySelector("#eta").innerText = `ETA: ${Math.floor((iterations - i) * i / (currentTime - startTime) * 10)}s`;
+          await new Promise(r => { // brief delay so DOM can update
+            setTimeout(r, 1);
+          });
+          
+          buffer.push(nPlane);
+          oPlane = nPlane;
+          nPlane = [];
+        }
+        
+        function render(plane) {
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, width, height);
+          
+          let img = ctx.createImageData(width, height);
+          for (let i = 0; i < width * height * 4; i += 4) {
+            img.data.fill(255, i, i + 3);
+            img.data[i + 3] = Math.floor(127 + plane[i / 4] * 127);
+          }
+          
+          ctx.putImageData(img, 0, 0);
+        }
+        
+        await alert("Done! Press ok to view animation.");
+        let step = 0;
+        for (let i = 0; i < buffer.length; i++) {
+          render(buffer[i]);
+          console.log("Now viewing: buffer #" + i);
+          await new Promise(r => {
+            let handler = e => {
+              if (step && e.code !== "Enter")
+                return;
+                
+              document.removeEventListener("keyup", handler);
+              r();
+            };
+            
+            document.addEventListener("keyup", handler);
+            if (!step)
+              setTimeout(handler, 33);
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>
