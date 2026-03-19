@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Perlin Noise Demo</title>
+    <style>
+      body {
+        background-color: #000;
+      }
+      
+      h1 {
+        color: #fff;
+      }
+      
+      #display {
+        border: 1px solid #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Perlin Noise Demo</h1>
+    <hr>
+    <canvas id="display" width="512" height="512"></canvas><br>
+    
+    <script>
+      function start(presetCorners) {
+        let width = 10; // initialize width of gradient vector grid
+        let height = 10; // initialize height of gradient vector grid
+        let debug = false;
+        
+        let ctx = document.querySelector("#display").getContext("2d");
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, 512, 512); // wipe canvas
+        
+        let corners;
+        if (presetCorners) {
+          corners = presetCorners;
+        } else { 
+          // dimension + 1 because we need to include both the zero and far edge
+          corners = (new Array((width + 1) * (height + 1))).fill([]).map(() => {
+            let theta = Math.random() * 2 * Math.PI;
+            return [Math.cos(theta), Math.sin(theta)];
+          }); // initialize corner gradient vectors
+        }
+        
+        let pixels = (new Array(512 * 512)).fill(0).map((e, i) => { // find the actual value for each pixel
+          let pX = i % 512; // x coordinate of pixel
+          let pY = Math.floor(i / 512); // y coordinate of pixel
+          
+          let cell = Math.floor(pY / (512 / height)) * width + Math.floor(pX / (512 / width)); // grid cell the pixel is located in
+          let cellX = cell % width; // x coordinate of the grid cell
+          let cellY = Math.floor(cell / width); // y coordinate of the grid cell
+          
+          let negUp = cellY * (width + 1) + cellX; // index of cell's upper-left corner
+          let posUp = cellY * (width + 1) + cellX + 1; // index of cell's upper-right corner
+          let negDown = (cellY + 1) * (width + 1) + cellX; // index of cell's lower-left corner
+          let posDown = (cellY + 1) * (width + 1) + cellX + 1; // index of cell's lower-right corner
+          
+          function dotProd(corner) { // calculate the dot product between the displacement and gradient vectors of a given corner
+            let cornerX = corner % (width + 1) * (512 / width); // x coordinate of given corner
+            let cornerY = Math.floor(corner / (width + 1)) * (512 / height); // y coordinate of given corner
+            let dispVector = [pX - cornerX, pY - cornerY]; // offset vector from corner to pixel
+            // let dispVector = [Math.abs(pX - cornerX), Math.abs(pY - cornerY)]; // offset vector from corner to pixel
+            return corners[corner][0] * dispVector[0] + corners[corner][1] * dispVector[1]; // dot product of vectors "a" and "b" is equal to "a.x * b.x + a.y * b.y"
+          }
+          
+          function smoothstep(x) { // sigmoid-like interpolation function
+            if (x <= 0)
+              return 0;
+            if (x >= 1)
+              return 1;
+            
+            return 3 * x ** 2 - 2 * Math.pow(x, 3);
+          }
+          
+          let dotProdCorners = [dotProd(negUp), dotProd(posUp), dotProd(negDown), dotProd(posDown)]; // find dot product of each of the 4 corners
+          let scaleX = (pX - cellX * (512 / width)) / (512 / width); // 0 = left edge of cell, 1 = right edge of cell
+          let scaleY = (pY - cellY * (512 / height)) / (512 / height); // 0 = top edge of cell, 1 = bottom edge of cell
+          let topGrad = dotProdCorners[0] + smoothstep(scaleX) * (dotProdCorners[1] - dotProdCorners[0]); // this and the next two lines are just bilinear interpolation
+          let bottomGrad = dotProdCorners[2] + smoothstep(scaleX) * (dotProdCorners[3] - dotProdCorners[2]);
+          let vertGrad = topGrad + smoothstep(scaleY) * (bottomGrad - topGrad);
+          
+          return {dotProdCorners, topGrad, bottomGrad, vertGrad}; // other information included for debugging purposes
+        });
+        
+        let scale = (function() { // find the largest magnitude so our colors are bright enough
+          let record = 0;
+          for (let i = 0; i < pixels.length; i++) {
+            let option = Math.abs(pixels[i].vertGrad);
+            if (option > record)
+              record = option;
+          }
+          return record;
+        })();
+
+        let img = ctx.createImageData(512, 512); // red = positive, blue = negative, black = 0
+        for (let i = 0; i < img.data.length; i += 4) {
+          let value = pixels[Math.floor(i / 4)].vertGrad / scale * 255;
+          img.data[i] = (value >= 0 ? value : 0);
+          img.data[i + 1] = 0;
+          img.data[i + 2] = (value < 0 ? (value * -1) : 0);
+          img.data[i + 3] = 255;
+        }
+        
+        ctx.putImageData(img, 0, 0);
+        
+        if (debug) { // trace gridlines
+          ctx.strokeStyle = "#fff";
+          for (let i = 0; i < width + 1; i++) { // draw column lines
+            ctx.moveTo(512 / width * i, 0);
+            ctx.lineTo(512 / width * i, 511);
+            ctx.stroke();
+          }
+          for (let i = 0; i < height + 1; i++) { // draw row lines
+            ctx.moveTo(0, 512 / height * i);
+            ctx.lineTo(511, 512 / height * i);
+            ctx.stroke();
+          }
+        }
+        
+        return {pixels, corners};
+      }
+      
+      (async function() {
+        let cartToPol = (x, y) =>
+          Math.atan(y/x) + (x < 0 ? Math.PI / 2 : 0);
+        let rotationScale = Math.PI / 8;
+        let oldCorners;
+        while (true) {
+          oldCorners = start(oldCorners).corners;
+          oldCorners = oldCorners.map(e => {
+            let theta = cartToPol(e[0], e[1]) + Math.random() * rotationScale - rotationScale / 2;
+            return [Math.cos(theta), Math.sin(theta)];
+          });
+          await new Promise(r => {
+            setTimeout(r, 1);
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>
