@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Bilinear Interpolation</title>
+    <style>
+      body {
+        background-color: #000;
+      }
+      
+      h1 {
+        color: #fff;
+      }
+      
+      #display {
+        border: 1px solid #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Bilinear Interpolation</h1><hr>
+    <canvas id="display" width="512" height="512"></canvas>
+    
+    <script>
+      (async function() {
+        let corners = (new Array(4)).fill((new Array(3)).fill(0)).map(e => e.map(e => Math.floor(Math.random() * 256))); // 4x3 nested array filled with random values between 0-255
+        
+        function update() { // generate new frame
+          let ctx = document.querySelector("#display").getContext("2d");
+          let img = ctx.createImageData(512, 512);
+          for (let i = 0; i < img.data.length; i++) {
+            if (i > 0 && ((i + 1) % 4 === 0)) { // gamma should always be 255
+              img.data[i] = 255;
+            } else {
+              let pNum = Math.floor(i / 4);
+              let pX = pNum % 512 / 512; // 0 = left, 1 = right
+              let pY = Math.floor(pNum / 512) / 512; // 0 = top, 1 = bottom
+              
+              let topGrad = pX * (corners[1][i % 4] - corners[0][i % 4]) + corners[0][i % 4]; // interpolation between the corner points with the same x coordinate as our pixel
+              let bottomGrad = pX * (corners[3][i % 4] - corners[2][i % 4]) + corners[2][i % 4]; // same as above but for the bottom corners
+              let vertGrad = pY * (bottomGrad - topGrad) + topGrad; // interpolation between these two values based on the y coordinate
+              
+              img.data[i] = Math.floor(vertGrad);
+            }
+          }
+          
+          ctx.putImageData(img, 0, 0);
+          corners = (new Array(4)).fill((new Array(3)).fill(0)).map(e => e.map(e => Math.floor(Math.random() * 256))); // randomize the corner colors
+        }
+        
+        update();
+        setInterval(update, 1000);
+      })();
+    </script>
+  </body>
+</html>
